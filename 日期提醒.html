@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+</head>
+
+<body>
+  <h1 class="title">在一起了<span class="day-num"></span>天</h1>
+  <h1 class="title">距离念宝生日还有<span class="nian-bir"></span>天</h1>
+  <h1 class="title">距离龙宝生日还有<span class="long-bir"></span>天</h1>
+</body>
+<script>
+  document.querySelector('.day-num').innerHTML = days;
+  const days = getDays('2023-03-19 00:00:00');
+  const nianBirDays = getDays('2023-08-28 00:00:00');
+  const longBirDays = getDays('2023-07-10 00:00:00');
+  document.querySelector('.nian-bir').innerHTML = nianBirDays;
+  document.querySelector('.long-bir').innerHTML = longBirDays;
+  // 计算日期与今天的距离天数函数
+  function getDays (date) {
+    const start = new Date(date);
+    const end = new Date();
+    // 如果是今天，直接返回0
+    if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth() && start.getDate() === end.getDate()) {
+      return 0;
+    }
+    const days = Math.ceil((start.getTime() - end.getTime()) / 1000 / 60 / 60 / 24);
+    // 返回绝对值
+    return Math.abs(days)
+  }
+</script>
+
+</html>
+
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: black;
+    padding-bottom: 200px;
+  }
+
+  .title {
+    text-align: center;
+    font-size: 50px;
+    color: #fff;
+    margin-top: 100px;
+  }
+
+  .day-num {
+    color: red;
+  }
+
+  .nian-bir {
+    color: pink;
+  }
+
+  .long-bir {
+    color: skyblue;
+  }
+</style>

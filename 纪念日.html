@@ -1,0 +1,442 @@
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <script src="https://unpkg.com/vue@next"></script>
+  <!-- import CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+  <!-- import JavaScript -->
+  <script src="https://unpkg.com/element-plus"></script>
+  <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+  <script src="https://unpkg.com/element-plus/dist/locale/zh-cn"></script>
+  <title>小龙和念宝的纪念日</title>
+</head>
+
+<body>
+  <div id="app">
+    <el-calendar ref="calendar" v-model="value">
+      <template #header="{ date }">
+        <span>特殊日期日历表</span>
+        <span>{{ date }}</span>
+        <el-button-group>
+          <el-button size="default" @click="selectDate('pre')">上个纪念日</el-button>
+          <el-button size="default" @click="handelNext('today')">返回今天</el-button>
+          <el-button size="default" @click="selectDate()">下个纪念日</el-button>
+        </el-button-group>
+      </template>
+      <template #date-cell="{ data }">
+        <div class="data-box" :class="isCommDay(data.day) ? 'is-jinian' : ''" @click="handelData(data.day)">
+          <p> {{ data.day.split('-').slice(1).join('-') }}</p>
+          <p v-if="isCommDay(data.day)">{{isCommDay(data.day)}}</p>
+          <p v-if="isCommDay(data.day) && data.day!=='2023-03-19'">
+            <template v-if="getDays(data.day) !==0">
+              距离今天{{getDays(data.day)}}天
+            </template>
+            <template v-else>
+              就是今天！
+            </template>
+          </p>
+        </div>
+      </template>
+    </el-calendar>
+    <div class="page-box">
+      <el-button type="primary" size="large" @click="handelNext('prev-month')">上个月</el-button>
+      <el-date-picker v-model="value" type="date" placeholder="选择跳转日期" :shortcuts="shortcuts" size="large"></el-date-picker>
+      <el-button type="primary" size="large" @click="handelNext('next-month')">下个月</el-button>
+    </div>
+    <el-dialog v-model="dialogVisible" :title="clickDay" width="30%" draggable>
+      <div class="dia-box">
+        <p class="center-text">我们在一起的第<span class="num-text">{{dayNum}}</span>天！</p>
+        <el-collapse v-model="activeName" accordion>
+          <template v-for="item in selsecDayInfo">
+            <el-collapse-item :title="item.name" :name="item.name">
+              <div class="day-event-box">
+                <div class="des-box">{{item.des || '暂无备注'}}</div>
+                <div class="op-box">
+                  <el-icon :size="20" @click="handelEdit(item)">
+                    <Edit />
+                  </el-icon>
+                  <el-icon :size="20" @click="handelDelete(item)">
+                    <Delete />
+                  </el-icon>
+                </div>
+              </div>
+            </el-collapse-item>
+          </template>
+        </el-collapse>
+        <el-button type="primary" class="add-event-btn" @click="handelAddEvent">添加纪念事件</el-button>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveDia">
+            保存
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="editDia" width="30%">
+      <el-form label-width="80px" :model="ruleForm" ref="ruleFormRef" :rules="rules">
+        <el-form-item label="事件名称" prop="name">
+          <el-input v-model="ruleForm.name"></el-input>
+        </el-form-item>
+        <el-form-item label="事件备注" prop="des">
+          <el-input v-model="ruleForm.des"></el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="editDia = false">取消</el-button>
+          <el-button type="primary" @click="submitForm">
+            保存
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+  </div>
+  <script>
+    const App = {
+      data () {
+        return {
+          activeName: '',
+          dialogVisible: false,
+          value: new Date(),
+          dayNum: 0,
+          clickDay: '',
+          nextDataIndex: 1,
+          commemoration_day_arr: [],
+          editDia: false,
+          selsecDayInfo: {},
+          shortcuts: [{
+              text: '今天',
+              value: new Date(),
+            },
+            {
+              text: '去年',
+              value: () => {
+                const date = new Date();
+                date.setFullYear(date.getFullYear() - 1);
+                return date;
+              },
+            },
+            {
+              text: '明年',
+              value: () => {
+                const date = new Date();
+                date.setFullYear(date.getFullYear() + 1);
+                return date;
+              },
+            }
+          ],
+          ruleForm: {
+            name: '',
+            des: ''
+          },
+          rules: {
+            name: [{
+              required: true,
+              message: '请输入事件名称',
+              trigger: 'blur'
+            }],
+            des: [{
+              required: false,
+              message: '请输入事件备注',
+              trigger: 'blur'
+            }]
+          }
+        };
+      },
+      created () {
+        const commemoration_day_arr = localStorage.getItem('commemoration_day_arr');
+        if (commemoration_day_arr) {
+          this.commemoration_day_arr = JSON.parse(commemoration_day_arr);
+        } else {
+          this.commemoration_day_arr = [{
+              data: ['2023-03-19'],
+              name: `我们在一起啦！`,
+              des: `这一天，我们在一起啦！`
+            },
+            {
+              data: ['2024-03-19'],
+              name: '周年纪念日',
+              des: `纪念我们在一起的第一年！`
+            },
+            {
+              data: ['2023-08-28', '2024-08-16'],
+              name: '念宝生日',
+              des: `我最爱的念宝生日今天过生日啦！`
+            },
+            {
+              data: ['2023-07-10', '2024-06-28'],
+              name: '龙宝生日',
+              des: `重庆陈冠希今天过生日啦！`
+            },
+            {
+              data: ['2024-02-14'],
+              name: '情人节',
+              des: `情人节快乐！`
+            },
+            {
+              data: ['2023-08-22', '2024-08-10'],
+              name: '七夕节',
+              des: `七夕节快乐！`
+            },
+            {
+              data: ['2024-12-25'],
+              name: '圣诞节',
+              des: `圣诞节快乐！`
+            }
+          ]
+        }
+        localStorage.commemoration_day_arr = JSON.stringify(this.commemoration_day_arr);
+      },
+      methods: {
+        handelData (day) {
+          this.dayNum = this.getDays('2023-03-19', new Date(day))
+          this.clickDay = day;
+          this.selsecDayInfo = this.getCommDayInfo(day);
+          this.dialogVisible = true;
+        },
+        // 计算日期与今天的距离天数函数
+        getDays (date, ks = new Date()) {
+          const start = new Date(date);
+          const end = ks;
+          // 如果是今天，直接返回0
+          if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth() && start.getDate() === end.getDate()) {
+            return 0;
+          }
+          const days = Math.ceil((start.getTime() - end.getTime()) / 1000 / 60 / 60 / 24);
+          // 返回绝对值
+          return Math.abs(days)
+        },
+        handelNext (val) {
+          this.$refs.calendar.selectDate(val)
+        },
+        // 跳转到下个纪念日
+        selectDate (type = 'next') {
+          const arr = this.getCommDay().sort((a, b) => {
+            return new Date(a.value) - new Date(b.value)
+          })
+          if ((this.nextDataIndex === arr.length - 1 && type === 'next') || (this.nextDataIndex === 0 && type === 'pre' && this.nextDataIndex === 0)) {
+            this.$message({
+              message: '已经是最后一个纪念日了',
+              type: 'warning',
+            });
+          } else {
+            if (type === 'next') {
+              this.nextDataIndex++;
+            } else {
+              this.nextDataIndex--;
+            }
+            const nextDay = arr[this.nextDataIndex].value
+            this.value = new Date(nextDay);
+          }
+        },
+        // 获取纪念日
+        getCommDay () {
+          const arr = [];
+          this.commemoration_day_arr.forEach(item => {
+            item.data.forEach(i => {
+              arr.push({
+                value: i,
+                name: item.name,
+              });
+            });
+          });
+          return arr;
+        },
+        // 判断是否是纪念日 返回纪念日名称
+        isCommDay (date) {
+          const arr = this.getCommDay();
+          const obj = arr.find(item => item.value === date);
+          return obj ? obj.name : '';
+        },
+        // 添加纪念事件
+        handelAddEvent () {
+          this.ruleForm.name = '';
+          this.ruleForm.des = '';
+          this.editDia = true;
+        },
+        // 设置日期事件到localstorage
+        setCommDay (day, name, des) {
+          // 判断是否已经存在 不存在则添加 存在则修改
+          // 同一天 同一个事件名称 只能存在一个
+          const arr = this.commemoration_day_arr.find(item => item.name === name && item.data.includes(day));
+          if (arr) {
+            arr.des = des;
+          } else {
+            this.commemoration_day_arr.push({
+              data: [day],
+              name,
+              des
+            });
+          }
+          localStorage.setItem('commemoration_day_arr', JSON.stringify(this.commemoration_day_arr));
+          this.selsecDayInfo = this.getCommDayInfo(day);
+        },
+        // 获取纪念日信息
+        getCommDayInfo (day) {
+          const arr = this.commemoration_day_arr.filter(item => item.data.includes(day));
+          return arr.map(item => {
+            return {
+              name: item.name,
+              des: item.des
+            }
+          })
+        },
+        handelEdit (info) {
+          this.ruleForm.name = info.name;
+          this.ruleForm.des = info.des;
+          this.editDia = true;
+        },
+        handelDelete (info) {
+          // 二次确认
+          this.$confirm(`确认删除${info.name}吗？`, '提示', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }).then(() => {
+            const arr = this.commemoration_day_arr.find(item => item.name === info.name);
+            if (arr) {
+              arr.data = arr.data.filter(item => item !== this.clickDay);
+              if (arr.data.length === 0) {
+                this.commemoration_day_arr = this.commemoration_day_arr.filter(item => item.name !== info.name);
+              }
+            }
+            localStorage.setItem('commemoration_day_arr', JSON.stringify(this.commemoration_day_arr));
+            this.selsecDayInfo = this.getCommDayInfo(this.clickDay);
+            this.$message({
+              type: 'success',
+              message: '删除成功!'
+            });
+          }).catch(() => {
+            this.$message({
+              type: 'info',
+              message: '已取消删除'
+            });
+          });
+        },
+        saveDia () {
+          this.dialogVisible = false;
+        },
+        submitForm () {
+          this.$refs.ruleFormRef.validate((valid) => {
+            if (valid) {
+              this.setCommDay(this.clickDay, this.ruleForm.name, this.ruleForm.des);
+              this.editDia = false;
+              this.$message({
+                message: '添加成功',
+                type: 'success',
+              });
+              this.selsecDayInfo = this.getCommDayInfo(this.clickDay);
+            } else {
+              return false;
+            }
+          });
+        }
+      },
+    };
+
+
+    const app = Vue.createApp(App);
+    for ([name, comp] of Object.entries(ElementPlusIconsVue)) {
+      app.component(name, comp);
+    }
+    app.use(ElementPlus, {
+      locale: ElementPlusLocaleZhCn,
+    });
+    app.mount("#app");
+  </script>
+</body>
+
+</html>
+
+<style>
+  /* rest css */
+  * {
+    margin: 0;
+    padding: 0;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  .el-calendar-table .el-calendar-day {
+    padding: 0;
+  }
+
+  .data-box {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+  }
+
+  .is-jinian {
+    font-size: 20px;
+    color: #fff;
+    background: pink;
+  }
+
+  .dia-box {
+    text-align: center;
+  }
+
+  .center-text {
+    color: black;
+    font-size: 20px;
+    text-align: center;
+    margin-bottom: 50px;
+  }
+
+  .add-event-btn {
+    margin-top: 30px;
+  }
+
+  .op-icon {
+    font-size: 20px;
+    color: #409eff;
+  }
+
+  .num-text {
+    margin: 0 5px;
+    color: palevioletred;
+    font-weight: 700;
+  }
+
+  .day-event-box {
+    display: flex;
+  }
+
+  .des-box {
+    flex: 1;
+  }
+
+  .op-box {
+    flex-shrink: 0;
+    color: #409EFF;
+    width: 50px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .el-icon {
+    cursor: pointer;
+  }
+
+  .page-box {
+    margin-top: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    column-gap: 50px;
+  }
+
+  .page-box .el-button {
+    width: 150px;
+  }
+</style>
